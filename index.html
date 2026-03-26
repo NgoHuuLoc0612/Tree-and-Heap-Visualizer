@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Tree & Heap Visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Space+Grotesk:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<!-- ═══ SIDEBAR ═══ -->
+<aside id="sidebar">
+  <div class="logo">
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <circle cx="14" cy="6" r="4" fill="var(--accent)"/>
+      <circle cx="7" cy="18" r="3.5" fill="var(--accent2)"/>
+      <circle cx="21" cy="18" r="3.5" fill="var(--accent2)"/>
+      <line x1="14" y1="10" x2="7" y2="14.5" stroke="var(--fg-dim)" stroke-width="1.5"/>
+      <line x1="14" y1="10" x2="21" y2="14.5" stroke="var(--fg-dim)" stroke-width="1.5"/>
+    </svg>
+    <span>TreeViz</span>
+  </div>
+
+  <nav>
+    <div class="nav-group">
+      <div class="nav-label">BINARY TREES</div>
+      <button class="nav-btn active" data-struct="avl">AVL Tree</button>
+      <button class="nav-btn" data-struct="rbt">Red-Black Tree</button>
+      <button class="nav-btn" data-struct="treap">Treap</button>
+      <button class="nav-btn" data-struct="splay">Splay Tree</button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">HEAPS</div>
+      <button class="nav-btn" data-struct="heap">Binary Heap</button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">ADVANCED</div>
+      <button class="nav-btn" data-struct="btree">B-Tree</button>
+      <button class="nav-btn" data-struct="trie">Trie</button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">ALGORITHMS</div>
+      <button class="nav-btn algo-btn" data-algo="traversal">Traversal</button>
+      <button class="nav-btn algo-btn" data-algo="lca">LCA</button>
+      <button class="nav-btn algo-btn" data-algo="kth">Kth Smallest</button>
+      <button class="nav-btn algo-btn" data-algo="floor_ceil">Floor & Ceil</button>
+      <button class="nav-btn algo-btn" data-algo="huffman">Huffman</button>
+      <button class="nav-btn algo-btn" data-algo="dijkstra">Dijkstra</button>
+    </div>
+    <div class="nav-group">
+      <div class="nav-label">TOOLS</div>
+      <button class="nav-btn" id="btn-benchmark">⚡ Benchmark</button>
+      <button class="nav-btn" id="btn-analytics">📊 Analytics</button>
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="backend-badge" id="backend-badge">
+      <span class="dot"></span><span id="backend-label">Connecting…</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<main id="main">
+
+  <!-- Top Bar -->
+  <header id="topbar">
+    <div class="topbar-left">
+      <h1 id="struct-title">AVL Tree</h1>
+      <div class="struct-meta" id="struct-meta">Balanced BST · O(log n) ops</div>
+    </div>
+    <div class="topbar-right">
+      <!-- View Mode -->
+      <div class="toggle-group">
+        <button class="tgl active" data-view="2d">2D</button>
+        <button class="tgl" data-view="3d">3D</button>
+      </div>
+      <!-- Speed -->
+      <div class="speed-ctrl">
+        <span>Speed</span>
+        <input type="range" id="speed-slider" min="50" max="2000" value="500" step="50"/>
+        <span id="speed-val">500ms</span>
+      </div>
+      <!-- Reset -->
+      <button class="icon-btn" id="btn-reset" title="Reset">↺</button>
+      <button class="icon-btn" id="btn-generate" title="Generate random">⚄</button>
+    </div>
+  </header>
+
+  <!-- Control Panel -->
+  <section id="control-panel">
+    <!-- Key Input -->
+    <div class="input-row">
+      <input type="number" id="key-input" placeholder="Key" min="-9999" max="9999"/>
+      <input type="number" id="val-input" placeholder="Value (opt)"/>
+      <button class="btn-primary" id="btn-insert">Insert</button>
+      <button class="btn-danger"  id="btn-delete">Delete</button>
+      <button class="btn-neutral" id="btn-search">Search</button>
+    </div>
+    <!-- Bulk Insert -->
+    <div class="input-row">
+      <input type="text" id="bulk-input" placeholder="Bulk insert: 5,12,30,7…"/>
+      <button class="btn-neutral" id="btn-bulk">Bulk Insert</button>
+      <button class="btn-neutral" id="btn-trie-word" style="display:none">Insert Word</button>
+    </div>
+    <!-- Algo Panel -->
+    <div id="algo-panel" style="display:none"></div>
+  </section>
+
+  <!-- Canvas Area -->
+  <div id="canvas-area">
+    <canvas id="viz-canvas"></canvas>
+    <div id="three-container" style="display:none"></div>
+    <!-- Overlay info -->
+    <div id="node-tooltip" class="tooltip hidden"></div>
+    <!-- Traversal strip -->
+    <div id="traversal-strip" class="traversal-strip hidden"></div>
+  </div>
+
+  <!-- Stats Bar -->
+  <footer id="stats-bar">
+    <div class="stat"><span class="stat-label">Nodes</span><span class="stat-val" id="stat-nodes">0</span></div>
+    <div class="stat"><span class="stat-label">Height</span><span class="stat-val" id="stat-height">0</span></div>
+    <div class="stat"><span class="stat-label">Comparisons</span><span class="stat-val" id="stat-comparisons">0</span></div>
+    <div class="stat"><span class="stat-label">Rotations</span><span class="stat-val" id="stat-rotations">0</span></div>
+    <div class="stat"><span class="stat-label">Root</span><span class="stat-val" id="stat-root">—</span></div>
+    <div class="stat"><span class="stat-label">Last Op</span><span class="stat-val" id="stat-lastop">—</span></div>
+    <div class="stat"><span class="stat-label">Time (ms)</span><span class="stat-val" id="stat-time">—</span></div>
+  </footer>
+
+</main>
+
+<!-- ═══ MODALS ═══ -->
+<div id="modal-overlay" class="hidden">
+  <div id="modal-box">
+    <button id="modal-close">✕</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
